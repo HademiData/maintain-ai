@@ -1,0 +1,13 @@
+langchain-text-splitters
+sentence-transformers
+faiss-cpu
+python-dotenv
+huggingface_hub
+
+fastapi
+uvicorn
+python-dotenv
+huggingface_hub
+sentence-transformers
+faiss-cpu
+numpy
