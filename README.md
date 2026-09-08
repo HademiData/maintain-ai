@@ -1,7 +1,7 @@
 
 # Maintain AI
 
-![alt text](image.png)
+![alt text](image-1.png)
 
 > AI-powered maintenance planning and engineering assistant for smarter maintenance operations.
 
