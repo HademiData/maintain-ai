@@ -354,25 +354,14 @@ navItems.forEach((item) => {
 // ==========================================
 // CONVERSATION
 // ==========================================
+let conversationId = null;
 
-let conversationId =
-    localStorage.getItem(
-        "maintain_ai_conversation_id"
-    );
+let activeConversationId = null;
 
 
-if (!conversationId) {
-
-    conversationId =
-        `maintain-${Date.now()}`;
-
-    localStorage.setItem(
-        "maintain_ai_conversation_id",
-        conversationId
-    );
-
+if (token) {
+    loadConversations();
 }
-
 
 // ==========================================
 // CHAT
@@ -399,97 +388,142 @@ if (chatForm) {
 
             event.preventDefault();
 
-
-            const question =
-                chatInput.value.trim();
-
-
-            if (!question) {
-                return;
-            }
-
-
-            addUserMessage(question);
-
-
-            chatInput.value = "";
-
-            sendButton.disabled = true;
-
-
-            const loading =
-                addLoadingMessage();
-
-
-            try {
-
-                const response =
-                    await fetch(
-                        `${API_URL}/chat`,
-                        {
-                            method: "POST",
-
-                            headers: {
-                                "Content-Type":
-                                    "application/json",
-
-                                "Authorization":
-                                    `Bearer ${token}`
-                            },
-
-                            body: JSON.stringify({
-                                question,
-                                conversation_id:
-                                    conversationId
-                            })
-                        }
-                    );
-
-
-                const data =
-                    await response.json();
-
-
-                loading.remove();
-
-
-                if (!response.ok) {
-
-                    addAIMessage(
-                        data.detail ||
-                        "Something went wrong."
-                    );
-
-                    return;
-                }
-
-
-                renderAIResponse(data);
-
-            }
-
-            catch (error) {
-
-                loading.remove();
-
-                addAIMessage(
-                    "Unable to connect to Maintain AI."
-                );
-
-            }
-
-            finally {
-
-                sendButton.disabled = false;
-
-                chatInput.focus();
-
-            }
+            await sendMessage();
 
         }
     );
+
 }
 
+
+async function sendMessage() {
+
+    const question = chatInput.value.trim();
+
+    if (!question) {
+        return;
+    }
+
+    if (!token) {
+        console.error("User is not authenticated.");
+        return;
+    }
+
+    sendButton.disabled = true;
+
+    addUserMessage(question);
+
+    chatInput.value = "";
+
+    const loading = addLoadingMessage();
+
+    try {
+
+        // Create conversation if necessary
+        if (!activeConversationId) {
+
+            const conversationResponse =
+                await fetch(
+                    `${API_URL}/conversations`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Authorization":
+                                `Bearer ${token}`
+                        }
+                    }
+                );
+
+            if (!conversationResponse.ok) {
+                throw new Error(
+                    "Failed to create conversation."
+                );
+            }
+
+            const conversation =
+                await conversationResponse.json();
+
+            activeConversationId =
+                conversation.conversation_id;
+
+            conversationId =
+                activeConversationId;
+
+            localStorage.setItem(
+                "maintain_ai_conversation_id",
+                activeConversationId
+            );
+        }
+
+        // Send question
+        const response =
+            await fetch(
+                `${API_URL}/chat`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+
+                        "Authorization":
+                            `Bearer ${token}`
+                    },
+
+                    body: JSON.stringify({
+                        question: question,
+                        conversation_id:
+                            activeConversationId
+                    })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        loading.remove();
+
+        if (!response.ok) {
+
+            addAIMessage(
+                data.detail ||
+                "Something went wrong."
+            );
+
+            return;
+        }
+
+        // Render structured response correctly
+        renderAIResponse(data);
+
+        // Refresh sidebar
+        await loadConversations();
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Chat error:",
+            error
+        );
+
+        loading.remove();
+
+        addAIMessage(
+            "Unable to connect to Maintain AI."
+        );
+
+    }
+
+    finally {
+
+        sendButton.disabled = false;
+
+        chatInput.focus();
+
+    }
+}
 
 // ==========================================
 // ADD USER MESSAGE
@@ -917,3 +951,304 @@ function escapeHTML(value) {
     return div.innerHTML;
 
 }
+
+
+async function loadConversations() {
+
+    const list =
+        document.getElementById(
+            "conversationList"
+        );
+
+    if (!list || !token) {
+        return;
+    }
+
+    try {
+
+        const response = await fetch(
+            `${API_URL}/conversations`,
+            {
+                headers: {
+                    "Authorization":
+                        `Bearer ${token}`
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                "Failed to load conversations"
+            );
+        }
+
+        const conversations =
+            await response.json();
+
+        renderConversationList(
+            conversations
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Conversation loading error:",
+            error
+        );
+
+        list.innerHTML = `
+            <div class="conversation-empty">
+                Unable to load chats.
+            </div>
+        `;
+    }
+}
+
+function renderConversationList(
+    conversations
+) {
+
+    const list =
+        document.getElementById(
+            "conversationList"
+        );
+
+    if (!list) {
+        return;
+    }
+
+    if (!conversations.length) {
+
+        list.innerHTML = `
+            <div class="conversation-empty">
+                No previous chats yet.
+            </div>
+        `;
+
+        return;
+    }
+
+    list.innerHTML = conversations
+        .map(
+            conversation => `
+                <button
+                    class="conversation-item ${conversation.conversation_id ===
+                    activeConversationId
+                    ? "active"
+                    : ""
+                }"
+                    data-conversation-id="${escapeHTML(
+                    conversation.conversation_id
+                )
+                }"
+                >
+
+                    <span class="conversation-icon">
+                        ◌
+                    </span>
+
+                    <span class="conversation-title">
+                        ${escapeHTML(
+                    conversation.title
+                )}
+                    </span>
+
+                </button>
+            `
+        )
+        .join("");
+
+    document
+        .querySelectorAll(
+            ".conversation-item"
+        )
+        .forEach(button => {
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    loadConversation(
+                        button.dataset
+                            .conversationId
+                    );
+
+                }
+            );
+
+        });
+}
+
+async function loadConversation(
+    conversationIdToLoad
+) {
+
+    try {
+
+        const response = await fetch(
+            `${API_URL}/conversations/${conversationIdToLoad}`,
+            {
+                headers: {
+                    "Authorization":
+                        `Bearer ${token}`
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                "Failed to load conversation"
+            );
+        }
+
+        const data =
+            await response.json();
+
+        activeConversationId =
+            conversationIdToLoad;
+
+        conversationId =
+            conversationIdToLoad;
+
+        localStorage.setItem(
+            "maintain_ai_conversation_id",
+            conversationIdToLoad
+        );
+
+        renderConversationMessages(
+            data.messages
+        );
+
+        loadConversations();
+
+        openAssistant();
+
+    } catch (error) {
+
+        console.error(
+            "Conversation loading error:",
+            error
+        );
+
+    }
+}
+
+
+function renderConversationMessages(
+    messages
+) {
+
+    if (!chatMessages) {
+        return;
+    }
+
+    chatMessages.innerHTML = "";
+
+    messages.forEach(message => {
+
+        if (message.role === "user") {
+
+            addUserMessage(
+                message.content
+            );
+
+        } else if (
+            message.role === "assistant"
+        ) {
+
+            addAIMessage(
+                message.content
+            );
+
+        }
+
+    });
+
+    scrollChat();
+}
+
+async function createNewChat() {
+
+    try {
+
+        const response = await fetch(
+            `${API_URL}/conversations`,
+            {
+                method: "POST",
+
+                headers: {
+                    "Authorization":
+                        `Bearer ${token}`
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                "Failed to create conversation"
+            );
+        }
+
+        const data =
+            await response.json();
+
+        activeConversationId =
+            data.conversation_id;
+
+        conversationId =
+            data.conversation_id;
+
+        localStorage.setItem(
+            "maintain_ai_conversation_id",
+            data.conversation_id
+        );
+
+        chatMessages.innerHTML = `
+            <div class="welcome-message">
+
+                <div class="welcome-icon">
+                    ✦
+                </div>
+
+                <h2>
+                    How can I help?
+                </h2>
+
+                <p>
+                    Ask Maintain AI about your
+                    equipment, maintenance,
+                    troubleshooting or engineering.
+                </p>
+
+            </div>
+        `;
+
+        loadConversations();
+
+        openAssistant();
+
+        chatInput.focus();
+
+    } catch (error) {
+
+        console.error(
+            "New conversation error:",
+            error
+        );
+
+    }
+}
+
+const newChatButton =
+    document.getElementById(
+        "newChatButton"
+    );
+
+if (newChatButton) {
+
+    newChatButton.addEventListener(
+        "click",
+        createNewChat
+    );
+}
+

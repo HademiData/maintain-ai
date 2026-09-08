@@ -81,3 +81,19 @@ def get_user_by_email(email):
 
     return user
 
+def get_user_by_id(user_id):
+
+    connection = get_connection()
+
+    user = connection.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id = ?
+        """,
+        (user_id,)
+    ).fetchone()
+
+    connection.close()
+
+    return user
