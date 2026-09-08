@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+
+from api.auth.security import get_current_user
+
 from fastapi.responses import FileResponse
 
 from api.schemas import ChatRequest, ChatResponse
@@ -10,12 +13,17 @@ from app import ask_maintain_ai
 from api.auth.database import initialize_users_database
 from api.auth.routes import router as auth_router
 
+from memory import conversation
 from memory.conversation import (
     initialize_memory,
-    save_message,
+    create_conversation,
+    get_user_conversations,
+    get_conversation,
     get_conversation_history,
+    save_message,
+    update_conversation_title,
+    delete_conversation,
 )
-
 
 # ==========================================
 # APPLICATION
@@ -163,13 +171,99 @@ def health():
 # AI CHAT
 # ==========================================
 
-@app.post(
-    "/chat",
-    response_model=ChatResponse
-)
-def chat(request: ChatRequest):
+# ==========================================
+# CONVERSATION ENDPOINTS
+# ==========================================
 
+@app.post("/conversations")
+def create_new_conversation(
+    current_user=Depends(get_current_user)
+):
+    import uuid
+
+    conversation_id = str(uuid.uuid4())
+
+    create_conversation(
+        conversation_id=conversation_id,
+        user_id=current_user["id"],
+        title="New conversation"
+    )
+
+    return {
+        "conversation_id": conversation_id,
+        "title": "New conversation"
+    }
+
+
+@app.get("/conversations")
+def list_conversations(
+    current_user=Depends(get_current_user)
+):
+    return get_user_conversations(
+        current_user["id"]
+    )
+
+
+@app.get("/conversations/{conversation_id}")
+def load_conversation(
+    conversation_id: str,
+    current_user=Depends(get_current_user)
+):
+    conversation = get_conversation(
+        conversation_id,
+        current_user["id"]
+    )
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found."
+        )
+
+    messages = get_conversation_history(
+        conversation_id,
+        limit=100
+    )
+
+    return {
+        "conversation": conversation,
+        "messages": messages
+    }
+
+
+@app.delete("/conversations/{conversation_id}")
+def remove_conversation(
+    conversation_id: str,
+    current_user=Depends(get_current_user)
+):
+    conversation = get_conversation(
+        conversation_id,
+        current_user["id"]
+    )
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found."
+        )
+
+    delete_conversation(
+        conversation_id,
+        current_user["id"]
+    )
+
+    return {
+        "message": "Conversation deleted successfully."
+    }
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(
+    request: ChatRequest,
+    current_user=Depends(get_current_user)
+):
     question = request.question.strip()
+
 
     if not question:
 
@@ -177,6 +271,18 @@ def chat(request: ChatRequest):
             status_code=400,
             detail="Question cannot be empty."
         )
+
+    conversation = get_conversation(
+        request.conversation_id,
+        current_user["id"]
+    )
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found."
+        )
+
 
 
     # --------------------------------------
@@ -223,6 +329,18 @@ def chat(request: ChatRequest):
         question
     )
 
+    if conversation["title"] == "New conversation":
+
+        title = question.strip()
+
+        if len(title) > 50:
+            title = title[:50] + "..."
+
+        update_conversation_title(
+            request.conversation_id,
+            current_user["id"],
+            title
+        )
 
     # --------------------------------------
     # Save AI response

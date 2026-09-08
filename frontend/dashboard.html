@@ -27,739 +27,758 @@
 
             <div class="sidebar-brand">
 
-                <div class="brand-mark">
-                    M
+                <div class="brand-mark">⚙</div>
+
+            </div>
+
+            <div>
+                <div class="brand-name">
+                    Maintain<span>AI</span>
                 </div>
 
-                <div>
-                    <div class="brand-name">
-                        Maintain<span>AI</span>
-                    </div>
-
-                    <div class="brand-subtitle">
-                        Maintenance Intelligence
-                    </div>
+                <div class="brand-subtitle">
+                    Maintenance Intelligence
                 </div>
+            </div>
+
+    </div>
+
+
+    <div class="sidebar-section">
+
+        <div class="sidebar-label">
+            WORKSPACE
+        </div>
+
+
+        <button class="nav-item active" data-page="assistant">
+
+            <span class="nav-icon">✦</span>
+
+            <span>Assistant</span>
+
+        </button>
+
+
+        <button class="nav-item" data-page="equipment">
+
+            <span class="nav-icon">◈</span>
+
+            <span>Equipments</span>
+
+        </button>
+
+
+        <button class="nav-item" data-page="workorders">
+
+            <span class="nav-icon">▤</span>
+
+            <span>Work Orders</span>
+
+        </button>
+
+
+        <div class="chat-history-section">
+
+            <div class="sidebar-history-header">
+                <span>RECENT CHATS</span>
+
+                <button id="newChatButton" title="New chat">
+                    +
+                </button>
+            </div>
+
+            <div id="conversationList" class="conversation-list">
+                <div class="conversation-loading">
+                    Loading chats...
+                </div>
+            </div>
+
+        </div>
+
+
+        <button class="nav-item" data-page="analytics">
+
+            <span class="nav-icon">◫</span>
+
+            <span>Analytics</span>
+
+        </button>
+
+    </div>
+
+
+    <div class="sidebar-section">
+
+        <div class="sidebar-label">
+            ASSETS
+        </div>
+
+
+        <button class="asset-nav" data-page="equipment">
+
+            <span class="asset-status"></span>
+
+            <span>
+
+                <strong>BC-01</strong>
+
+                <small>
+                    Belt Conveyor
+                </small>
+
+            </span>
+
+        </button>
+
+    </div>
+
+
+    <div class="sidebar-bottom">
+
+        <div class="system-status">
+
+            <span class="status-dot"></span>
+
+            <div>
+
+                <strong>
+                    AI System Online
+                </strong>
+
+                <small>
+                    Knowledge base active
+                </small>
+
+            </div>
+
+        </div>
+
+
+        <div class="user-profile">
+
+            <div class="user-avatar" id="userAvatar">
+                U
+            </div>
+
+
+            <div class="user-details">
+
+                <strong id="userName">
+                    User
+                </strong>
+
+                <small id="userEmail">
+                    user@example.com
+                </small>
 
             </div>
 
 
-            <div class="sidebar-section">
+            <button id="logoutButton" class="logout-button" title="Logout">
+                ↪
+            </button>
 
-                <div class="sidebar-label">
-                    WORKSPACE
-                </div>
+        </div>
 
+    </div>
 
-                <button class="nav-item active" data-page="assistant">
-
-                    <span class="nav-icon">✦</span>
-
-                    <span>Assistant</span>
-
-                </button>
+    </aside>
 
 
-                <button class="nav-item" data-page="equipment">
-
-                    <span class="nav-icon">◈</span>
-
-                    <span>Equipments</span>
-
-                </button>
-
-
-                <button class="nav-item" data-page="workorders">
-
-                    <span class="nav-icon">▤</span>
-
-                    <span>Work Orders</span>
-
-                </button>
-
-
-                <button class="nav-item" data-page="analytics">
-
-                    <span class="nav-icon">◫</span>
-
-                    <span>Analytics</span>
-
-                </button>
-
-            </div>
-
-
-            <div class="sidebar-section">
-
-                <div class="sidebar-label">
-                    ASSETS
-                </div>
-
-
-                <button class="asset-nav" data-page="equipment">
-
-                    <span class="asset-status"></span>
-
-                    <span>
-
-                        <strong>BC-01</strong>
-
-                        <small>
-                            Belt Conveyor
-                        </small>
-
-                    </span>
-
-                </button>
-
-            </div>
-
-
-            <div class="sidebar-bottom">
-
-                <div class="system-status">
-
-                    <span class="status-dot"></span>
-
-                    <div>
-
-                        <strong>
-                            AI System Online
-                        </strong>
-
-                        <small>
-                            Knowledge base active
-                        </small>
-
-                    </div>
-
-                </div>
-
-
-                <div class="user-profile">
-
-                    <div class="user-avatar" id="userAvatar">
-                        U
-                    </div>
-
-
-                    <div class="user-details">
-
-                        <strong id="userName">
-                            User
-                        </strong>
-
-                        <small id="userEmail">
-                            user@example.com
-                        </small>
-
-                    </div>
-
-
-                    <button id="logoutButton" class="logout-button" title="Logout">
-                        ↪
-                    </button>
-
-                </div>
-
-            </div>
-
-        </aside>
-
-
-        <!-- =========================================
+    <!-- =========================================
          MAIN
     ========================================== -->
 
-        <main class="dashboard-main">
+    <main class="dashboard-main">
 
 
-            <!-- =====================================
+        <!-- =====================================
              ASSISTANT
         ====================================== -->
 
-            <section id="assistantPage" class="dashboard-page active-page">
+        <section id="assistantPage" class="dashboard-page active-page">
 
-                <header class="page-header">
+            <header class="page-header">
 
-                    <div>
+                <div>
 
-                        <div class="eyebrow">
-                            MAINTENANCE INTELLIGENCE
-                        </div>
-
-                        <h1>
-                            Maintenance Assistant
-                        </h1>
-
-                        <p>
-                            Ask questions, investigate equipment,
-                            troubleshoot failures and plan maintenance.
-                        </p>
-
+                    <div class="eyebrow">
+                        MAINTENANCE INTELLIGENCE
                     </div>
 
+                    <h1>
+                        Maintenance Assistant
+                    </h1>
 
-                    <div class="header-status">
-
-                        <span class="status-dot"></span>
-
-                        AI Online
-
-                    </div>
-
-                </header>
-
-
-                <div class="assistant-shell">
-
-
-                    <div id="chatMessages" class="chat-messages">
-
-                        <div class="welcome-message">
-
-                            <div class="welcome-icon">
-                                ✦
-                            </div>
-
-                            <h2>
-                                How can I help?
-                            </h2>
-
-                            <p>
-                                Ask Maintain AI about your equipment,
-                                maintenance procedures, troubleshooting,
-                                spare parts or engineering concepts.
-                            </p>
-
-
-                            <div class="suggestion-grid">
-
-
-                                <button class="suggestion" data-question="What is the BC-01 gearbox item number?">
-
-                                    <span>◈</span>
-
-                                    <div>
-
-                                        <strong>
-                                            Equipment information
-                                        </strong>
-
-                                        <small>
-                                            Find asset and component details
-                                        </small>
-
-                                    </div>
-
-                                </button>
-
-
-                                <button class="suggestion"
-                                    data-question="Create a maintenance work order for a noisy BC-01 idler.">
-
-                                    <span>▤</span>
-
-                                    <div>
-
-                                        <strong>
-                                            Create work order
-                                        </strong>
-
-                                        <small>
-                                            Plan a maintenance task
-                                        </small>
-
-                                    </div>
-
-                                </button>
-
-
-                                <button class="suggestion" data-question="Why can a conveyor bearing overheat?">
-
-                                    <span>⚙</span>
-
-                                    <div>
-
-                                        <strong>
-                                            Engineering question
-                                        </strong>
-
-                                        <small>
-                                            Get engineering guidance
-                                        </small>
-
-                                    </div>
-
-                                </button>
-
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <form id="chatForm" class="chat-input-area">
-
-                        <div class="input-wrapper">
-
-                            <textarea id="chatInput" rows="1" placeholder="Ask Maintain AI anything..."></textarea>
-
-
-                            <button type="submit" id="sendButton" class="send-button">
-                                ↑
-                            </button>
-
-                        </div>
-
-
-                        <div class="input-footer">
-
-                            <span>
-                                Maintain AI can use organizational
-                                maintenance documents as evidence.
-                            </span>
-
-                            <span>
-                                Enter ↵
-                            </span>
-
-                        </div>
-
-                    </form>
+                    <p>
+                        Ask questions, investigate equipment,
+                        troubleshoot failures and plan maintenance.
+                    </p>
 
                 </div>
 
-            </section>
+
+                <div class="header-status">
+
+                    <span class="status-dot"></span>
+
+                    AI Online
+
+                </div>
+
+            </header>
 
 
-            <!-- =====================================
+            <div class="assistant-shell">
+
+
+                <div id="chatMessages" class="chat-messages">
+
+                    <div class="welcome-message">
+
+                        <div class="welcome-icon">
+                            ✦
+                        </div>
+
+                        <h2>
+                            How can I help?
+                        </h2>
+
+                        <p>
+                            Ask Maintain AI about your equipment,
+                            maintenance procedures, troubleshooting,
+                            spare parts or engineering concepts.
+                        </p>
+
+
+                        <div class="suggestion-grid">
+
+
+                            <button class="suggestion" data-question="What is the BC-01 gearbox item number?">
+
+                                <span>◈</span>
+
+                                <div>
+
+                                    <strong>
+                                        Equipment information
+                                    </strong>
+
+                                    <small>
+                                        Find asset and component details
+                                    </small>
+
+                                </div>
+
+                            </button>
+
+
+                            <button class="suggestion"
+                                data-question="Create a maintenance work order for a noisy BC-01 idler.">
+
+                                <span>▤</span>
+
+                                <div>
+
+                                    <strong>
+                                        Create work order
+                                    </strong>
+
+                                    <small>
+                                        Plan a maintenance task
+                                    </small>
+
+                                </div>
+
+                            </button>
+
+
+                            <button class="suggestion" data-question="Why can a conveyor bearing overheat?">
+
+                                <span>⚙</span>
+
+                                <div>
+
+                                    <strong>
+                                        Engineering question
+                                    </strong>
+
+                                    <small>
+                                        Get engineering guidance
+                                    </small>
+
+                                </div>
+
+                            </button>
+
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <form id="chatForm" class="chat-input-area">
+
+                    <div class="input-wrapper">
+
+                        <textarea id="chatInput" rows="1" placeholder="Ask Maintain AI anything..."></textarea>
+
+
+                        <button type="submit" id="sendButton" class="send-button">
+                            ↑
+                        </button>
+
+                    </div>
+
+
+                    <div class="input-footer">
+
+                        <span>
+                            Maintain AI can use organizational
+                            maintenance documents as evidence.
+                        </span>
+
+                        <span>
+                            Enter ↵
+                        </span>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </section>
+
+
+        <!-- =====================================
              EQUIPMENT
         ====================================== -->
 
-            <section id="equipmentPage" class="dashboard-page">
+        <section id="equipmentPage" class="dashboard-page">
 
-                <header class="page-header">
+            <header class="page-header">
 
-                    <div>
+                <div>
 
-                        <div class="eyebrow">
-                            ASSET INTELLIGENCE
-                        </div>
-
-                        <h1>
-                            Equipment
-                        </h1>
-
-                        <p>
-                            Explore equipment, components and
-                            maintenance knowledge.
-                        </p>
-
+                    <div class="eyebrow">
+                        ASSET INTELLIGENCE
                     </div>
 
-                </header>
+                    <h1>
+                        Equipment
+                    </h1>
 
-
-                <div class="equipment-hero">
-
-                    <div class="equipment-icon">
-                        ⚙
-                    </div>
-
-
-                    <div class="equipment-title">
-
-                        <div class="equipment-code">
-                            BC-01
-                        </div>
-
-                        <h2>
-                            Belt Conveyor
-                        </h2>
-
-                        <p>
-                            Material handling equipment
-                        </p>
-
-                    </div>
-
-
-                    <div class="equipment-status">
-
-                        <span class="status-dot"></span>
-
-                        Active
-
-                    </div>
+                    <p>
+                        Explore equipment, components and
+                        maintenance knowledge.
+                    </p>
 
                 </div>
 
-
-                <div class="stats-grid">
-
-                    <div class="stat-card">
-
-                        <span>
-                            ASSET ID
-                        </span>
-
-                        <strong>
-                            BC-01
-                        </strong>
-
-                    </div>
+            </header>
 
 
-                    <div class="stat-card">
+            <div class="equipment-hero">
 
-                        <span>
-                            COMPONENTS
-                        </span>
-
-                        <strong>
-                            9
-                        </strong>
-
-                    </div>
-
-
-                    <div class="stat-card">
-
-                        <span>
-                            KNOWLEDGE CHUNKS
-                        </span>
-
-                        <strong>
-                            59
-                        </strong>
-
-                    </div>
-
-
-                    <div class="stat-card">
-
-                        <span>
-                            AI STATUS
-                        </span>
-
-                        <strong class="online-text">
-                            ONLINE
-                        </strong>
-
-                    </div>
-
+                <div class="equipment-icon">
+                    ⚙
                 </div>
 
 
-                <div class="content-section">
+                <div class="equipment-title">
 
-                    <div class="section-heading">
-
-                        <div>
-
-                            <span class="eyebrow">
-                                ASSET STRUCTURE
-                            </span>
-
-                            <h2>
-                                Components
-                            </h2>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="component-grid">
-
-
-                        <div class="component-card">
-                            <span>01</span>
-                            <strong>Belt</strong>
-                            <small>Conveyor belt</small>
-                        </div>
-
-
-                        <div class="component-card">
-                            <span>02</span>
-                            <strong>Drive Motor</strong>
-                            <small>Electric motor</small>
-                        </div>
-
-
-                        <div class="component-card">
-                            <span>03</span>
-                            <strong>Gearbox</strong>
-                            <small>Drive gearbox</small>
-                        </div>
-
-
-                        <div class="component-card">
-                            <span>04</span>
-                            <strong>Pulleys</strong>
-                            <small>Drive & tail</small>
-                        </div>
-
-
-                        <div class="component-card">
-                            <span>05</span>
-                            <strong>Idlers</strong>
-                            <small>Carrying rollers</small>
-                        </div>
-
-
-                        <div class="component-card">
-                            <span>06</span>
-                            <strong>Bearings</strong>
-                            <small>Rotating support</small>
-                        </div>
-
-
-                        <div class="component-card">
-                            <span>07</span>
-                            <strong>Scraper</strong>
-                            <small>Belt cleaning</small>
-                        </div>
-
-
-                        <div class="component-card">
-                            <span>08</span>
-                            <strong>Take-up</strong>
-                            <small>Belt tension</small>
-                        </div>
-
-
-                        <div class="component-card">
-                            <span>09</span>
-                            <strong>Safety</strong>
-                            <small>Safety equipment</small>
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-                <div class="equipment-action">
-
-                    <div>
-
-                        <strong>
-                            Need maintenance information?
-                        </strong>
-
-                        <p>
-                            Ask the AI assistant about BC-01.
-                        </p>
-
-                    </div>
-
-
-                    <button onclick="openAssistantWithQuestion('Show me the maintenance information for BC-01.')"
-                        class="primary-button">
-                        Ask Maintain AI →
-                    </button>
-
-                </div>
-
-            </section>
-
-
-            <!-- =====================================
-             WORK ORDERS
-        ====================================== -->
-
-            <section id="workordersPage" class="dashboard-page">
-
-                <header class="page-header">
-
-                    <div>
-
-                        <div class="eyebrow">
-                            MAINTENANCE PLANNING
-                        </div>
-
-                        <h1>
-                            Work Orders
-                        </h1>
-
-                        <p>
-                            Generate maintenance work-order
-                            recommendations with AI.
-                        </p>
-
-                    </div>
-
-
-                    <button class="primary-button"
-                        onclick="openAssistantWithQuestion('Create a maintenance work order for BC-01.')">
-                        + Create Work Order
-                    </button>
-
-                </header>
-
-
-                <div class="workorder-empty">
-
-                    <div class="empty-icon">
-                        ▤
+                    <div class="equipment-code">
+                        BC-01
                     </div>
 
                     <h2>
-                        No work orders yet
+                        Belt Conveyor
                     </h2>
 
                     <p>
-                        Generate a maintenance work order from
-                        the AI assistant and it will appear here.
+                        Material handling equipment
                     </p>
-
-
-                    <button class="secondary-button" onclick="openAssistant()">
-                        Open Assistant
-                    </button>
 
                 </div>
 
-            </section>
+
+                <div class="equipment-status">
+
+                    <span class="status-dot"></span>
+
+                    Active
+
+                </div>
+
+            </div>
 
 
-            <!-- =====================================
+            <div class="stats-grid">
+
+                <div class="stat-card">
+
+                    <span>
+                        ASSET ID
+                    </span>
+
+                    <strong>
+                        BC-01
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>
+                        COMPONENTS
+                    </span>
+
+                    <strong>
+                        9
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>
+                        KNOWLEDGE CHUNKS
+                    </span>
+
+                    <strong>
+                        59
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>
+                        AI STATUS
+                    </span>
+
+                    <strong class="online-text">
+                        ONLINE
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <div class="content-section">
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <span class="eyebrow">
+                            ASSET STRUCTURE
+                        </span>
+
+                        <h2>
+                            Components
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+                <div class="component-grid">
+
+
+                    <div class="component-card">
+                        <span>01</span>
+                        <strong>Belt</strong>
+                        <small>Conveyor belt</small>
+                    </div>
+
+
+                    <div class="component-card">
+                        <span>02</span>
+                        <strong>Drive Motor</strong>
+                        <small>Electric motor</small>
+                    </div>
+
+
+                    <div class="component-card">
+                        <span>03</span>
+                        <strong>Gearbox</strong>
+                        <small>Drive gearbox</small>
+                    </div>
+
+
+                    <div class="component-card">
+                        <span>04</span>
+                        <strong>Pulleys</strong>
+                        <small>Drive & tail</small>
+                    </div>
+
+
+                    <div class="component-card">
+                        <span>05</span>
+                        <strong>Idlers</strong>
+                        <small>Carrying rollers</small>
+                    </div>
+
+
+                    <div class="component-card">
+                        <span>06</span>
+                        <strong>Bearings</strong>
+                        <small>Rotating support</small>
+                    </div>
+
+
+                    <div class="component-card">
+                        <span>07</span>
+                        <strong>Scraper</strong>
+                        <small>Belt cleaning</small>
+                    </div>
+
+
+                    <div class="component-card">
+                        <span>08</span>
+                        <strong>Take-up</strong>
+                        <small>Belt tension</small>
+                    </div>
+
+
+                    <div class="component-card">
+                        <span>09</span>
+                        <strong>Safety</strong>
+                        <small>Safety equipment</small>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="equipment-action">
+
+                <div>
+
+                    <strong>
+                        Need maintenance information?
+                    </strong>
+
+                    <p>
+                        Ask the AI assistant about BC-01.
+                    </p>
+
+                </div>
+
+
+                <button onclick="openAssistantWithQuestion('Show me the maintenance information for BC-01.')"
+                    class="primary-button">
+                    Ask Maintain AI →
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <!-- =====================================
+             WORK ORDERS
+        ====================================== -->
+
+        <section id="workordersPage" class="dashboard-page">
+
+            <header class="page-header">
+
+                <div>
+
+                    <div class="eyebrow">
+                        MAINTENANCE PLANNING
+                    </div>
+
+                    <h1>
+                        Work Orders
+                    </h1>
+
+                    <p>
+                        Generate maintenance work-order
+                        recommendations with AI.
+                    </p>
+
+                </div>
+
+
+                <button class="primary-button"
+                    onclick="openAssistantWithQuestion('Create a maintenance work order for BC-01.')">
+                    + Create Work Order
+                </button>
+
+            </header>
+
+
+            <div class="workorder-empty">
+
+                <div class="empty-icon">
+                    ▤
+                </div>
+
+                <h2>
+                    No work orders yet
+                </h2>
+
+                <p>
+                    Generate a maintenance work order from
+                    the AI assistant and it will appear here.
+                </p>
+
+
+                <button class="secondary-button" onclick="openAssistant()">
+                    Open Assistant
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <!-- =====================================
              ANALYTICS
         ====================================== -->
 
-            <section id="analyticsPage" class="dashboard-page">
+        <section id="analyticsPage" class="dashboard-page">
 
-                <header class="page-header">
+            <header class="page-header">
 
-                    <div>
+                <div>
 
-                        <div class="eyebrow">
-                            MAINTENANCE ANALYTICS
-                        </div>
-
-                        <h1>
-                            Analytics
-                        </h1>
-
-                        <p>
-                            Operational intelligence powered by
-                            your maintenance data.
-                        </p>
-
+                    <div class="eyebrow">
+                        MAINTENANCE ANALYTICS
                     </div>
 
-                </header>
+                    <h1>
+                        Analytics
+                    </h1>
+
+                    <p>
+                        Operational intelligence powered by
+                        your maintenance data.
+                    </p>
+
+                </div>
+
+            </header>
 
 
-                <div class="analytics-grid">
+            <div class="analytics-grid">
 
 
-                    <div class="analytics-card">
+                <div class="analytics-card">
 
-                        <span class="analytics-icon">
-                            ◈
-                        </span>
+                    <span class="analytics-icon">
+                        ◈
+                    </span>
 
-                        <small>
-                            EQUIPMENT
-                        </small>
+                    <small>
+                        EQUIPMENT
+                    </small>
 
-                        <strong>
-                            1
-                        </strong>
+                    <strong>
+                        1
+                    </strong>
 
-                        <p>
-                            Connected assets
-                        </p>
+                    <p>
+                        Connected assets
+                    </p>
 
-                    </div>
-
-
-                    <div class="analytics-card">
-
-                        <span class="analytics-icon">
-                            ▤
-                        </span>
-
-                        <small>
-                            KNOWLEDGE BASE
-                        </small>
-
-                        <strong>
-                            59
-                        </strong>
-
-                        <p>
-                            Indexed knowledge chunks
-                        </p>
-
-                    </div>
+                </div>
 
 
-                    <div class="analytics-card">
+                <div class="analytics-card">
 
-                        <span class="analytics-icon">
-                            ✦
-                        </span>
+                    <span class="analytics-icon">
+                        ▤
+                    </span>
 
-                        <small>
-                            AI ASSISTANT
-                        </small>
+                    <small>
+                        KNOWLEDGE BASE
+                    </small>
 
-                        <strong>
-                            Online
-                        </strong>
+                    <strong>
+                        59
+                    </strong>
 
-                        <p>
-                            RAG system operational
-                        </p>
+                    <p>
+                        Indexed knowledge chunks
+                    </p>
+
+                </div>
+
+
+                <div class="analytics-card">
+
+                    <span class="analytics-icon">
+                        ✦
+                    </span>
+
+                    <small>
+                        AI ASSISTANT
+                    </small>
+
+                    <strong>
+                        Online
+                    </strong>
+
+                    <p>
+                        RAG system operational
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="analytics-placeholder">
+
+                <div class="placeholder-icon">
+                    ◫
+                </div>
+
+                <div>
+
+                    <h2>
+                        Operational analytics coming next
+                    </h2>
+
+                    <p>
+                        Connect Maintain AI to your CMMS,
+                        maintenance database or data warehouse
+                        to unlock real operational intelligence.
+                    </p>
+
+
+                    <div class="future-metrics">
+
+                        <span>MTBF</span>
+                        <span>MTTR</span>
+                        <span>Failure Trends</span>
+                        <span>Downtime</span>
+                        <span>Maintenance Cost</span>
+                        <span>Recurring Failures</span>
 
                     </div>
 
                 </div>
 
+            </div>
 
-                <div class="analytics-placeholder">
+        </section>
 
-                    <div class="placeholder-icon">
-                        ◫
-                    </div>
-
-                    <div>
-
-                        <h2>
-                            Operational analytics coming next
-                        </h2>
-
-                        <p>
-                            Connect Maintain AI to your CMMS,
-                            maintenance database or data warehouse
-                            to unlock real operational intelligence.
-                        </p>
-
-
-                        <div class="future-metrics">
-
-                            <span>MTBF</span>
-                            <span>MTTR</span>
-                            <span>Failure Trends</span>
-                            <span>Downtime</span>
-                            <span>Maintenance Cost</span>
-                            <span>Recurring Failures</span>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-        </main>
+    </main>
 
     </div>
 
