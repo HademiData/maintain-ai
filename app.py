@@ -1,44 +1,127 @@
+from __future__ import annotations
+
+import json
 import os
 import time
-import json
+from typing import Any
 
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
 
-from rag import build_knowledge_base, search_documents
+from rag import (
+    RetrievalIndex,
+    build_retrieval_index,
+    search_documents,
+)
 
 
-# -----------------------------
-# Environment
-# -----------------------------
+# ============================================================
+# ENVIRONMENT
+# ============================================================
 
 load_dotenv()
 
 
-# -----------------------------
-# Hugging Face
-# -----------------------------
+HF_TOKEN = os.getenv("HF_TOKEN")
 
-client = InferenceClient(
-    api_key=os.getenv("HF_TOKEN")
+MODEL = os.getenv(
+    "MAINTAIN_AI_MODEL",
+    "deepseek-ai/DeepSeek-V3-0324",
 )
 
-MODEL = "deepseek-ai/DeepSeek-V3-0324"
+
+# Keep a finite timeout so a stalled remote inference request
+# does not hold the Render worker indefinitely.
+HF_TIMEOUT = float(
+    os.getenv(
+        "HF_TIMEOUT",
+        "90",
+    )
+)
 
 
-# -----------------------------
-# Response parsing
-# -----------------------------
+# ============================================================
+# HUGGING FACE CLIENT
+# ============================================================
 
-def parse_json_response(response_text):
+client = InferenceClient(
+    api_key=HF_TOKEN,
+    provider="auto",
+    timeout=HF_TIMEOUT,
+)
+
+
+# ============================================================
+# RETRIEVAL STATE
+# ============================================================
+
+_retrieval_index: RetrievalIndex | None = None
+
+
+def get_retrieval_index() -> RetrievalIndex:
     """
-    Parse JSON returned by DeepSeek.
+    Lazily initialize the maintenance retrieval index.
 
-    Handles:
-    - Normal JSON
-    - JSON wrapped in ```json ... ```
-    - JSON wrapped in ``` ... ```
+    Building this index is intentionally deferred until the first
+    organization-specific question. This keeps application startup
+    lightweight and allows Render to bind to the HTTP port quickly.
     """
+
+    global _retrieval_index
+
+    if _retrieval_index is None:
+        print(
+            "Initializing maintenance retrieval index..."
+        )
+
+        _retrieval_index = (
+            build_retrieval_index()
+        )
+
+    return _retrieval_index
+
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
+def require_huggingface_token() -> None:
+    """
+    Ensure AI inference is configured before making an external call.
+    """
+
+    if not HF_TOKEN:
+        raise RuntimeError(
+            "HF_TOKEN is not configured. "
+            "Add HF_TOKEN to the Render environment variables."
+        )
+
+
+def is_ai_configured() -> bool:
+    """
+    Used by the health endpoint.
+    """
+
+    return bool(HF_TOKEN)
+
+
+# ============================================================
+# JSON RESPONSE PARSING
+# ============================================================
+
+def parse_json_response(
+    response_text: str,
+) -> dict[str, Any]:
+    """
+    Parse JSON returned by the language model.
+
+    Handles normal JSON and JSON wrapped in Markdown code fences.
+    """
+
+    if not response_text:
+        raise ValueError(
+            "The language model returned an empty response."
+        )
 
     cleaned = response_text.strip()
 
@@ -51,220 +134,138 @@ def parse_json_response(response_text):
     if cleaned.endswith("```"):
         cleaned = cleaned[:-3]
 
-    return json.loads(cleaned.strip())
-
-
-# -----------------------------
-# Question classification
-# -----------------------------
-
-def classify_question(question, history=None):
-
-    if history is None:
-        history = []
-
-    response = client.chat.completions.create(
-        model=MODEL,
-
-        messages=[
-            {
-                "role": "system",
-                "content": """
-You are the question classifier for Maintain AI.
-
-Classify the user's question into exactly ONE category:
-
-ORGANIZATION_MAINTENANCE
-GENERAL_ENGINEERING
-
-
-ORGANIZATION_MAINTENANCE:
-
-Use this category when the question requires
-organization-specific maintenance information.
-
-This includes:
-
-- BC-01
-- Equipment records
-- Maintenance procedures
-- Maintenance schedules
-- Inspection procedures
-- Troubleshooting based on organization documents
-- Spare parts
-- Item numbers
-- Work orders
-- Maintenance planning
-- Organization-specific maintenance information
-
-
-Examples:
-
-What is the item number of the BC-01 gearbox?
-
-What maintenance should be performed on BC-01?
-
-What spare parts are available for BC-01?
-
-Create a work order for the damaged conveyor idler.
-
-What does the BC-01 maintenance manual say about
-the gearbox?
-
-
-GENERAL_ENGINEERING:
-
-Use this category for general engineering knowledge
-that does not require organization-specific documents.
-
-Examples:
-
-What do the numbers in a bearing designation mean?
-
-What is the difference between AC and DC?
-
-What is MTBF?
-
-How does a gearbox transmit torque?
-
-Why does a bearing overheat?
-
-What is the difference between preventive and
-predictive maintenance?
-
-Explain preventive maintenance.
-
-
-IMPORTANT:
-
-If the question mentions BC-01 or asks for
-organization-specific equipment information,
-classify it as ORGANIZATION_MAINTENANCE.
-
-
-Return ONLY one of:
-
-ORGANIZATION_MAINTENANCE
-
-GENERAL_ENGINEERING
-"""
-            },
-            {
-                "role": "user",
-                "content": f"""
-                Previous conversation:
-
-                {json.dumps(history, ensure_ascii=False)}
-
-                Current question:
-
-                {question}
-"""
-            }
-        ],
-
-        max_tokens=10,
-        temperature=0.0
+    parsed = json.loads(
+        cleaned.strip()
     )
 
-    classification = (
-        response.choices[0]
-        .message
-        .content
+    if not isinstance(parsed, dict):
+        raise ValueError(
+            "The language model returned JSON, "
+            "but the root value was not an object."
+        )
+
+    return parsed
+
+
+# ============================================================
+# QUESTION CLASSIFICATION
+# ============================================================
+
+ORGANIZATION_KEYWORDS = (
+    "bc-01",
+    "item number",
+    "item no",
+    "equipment record",
+    "equipment history",
+    "maintenance history",
+    "maintenance interval",
+    "maintenance schedule",
+    "maintenance manual",
+    "maintenance document",
+    "inspection result",
+    "inspection procedure",
+    "spare part",
+    "spare parts",
+    "part number",
+    "work order",
+    "workorder",
+    "inventory",
+    "organization document",
+)
+
+
+MAINTENANCE_COMPONENTS = (
+    "conveyor",
+    "idler",
+    "pulley",
+    "bearing",
+    "gearbox",
+    "gear box",
+    "scraper",
+    "take-up",
+    "take up",
+    "drive motor",
+)
+
+
+def classify_question(
+    question: str,
+) -> str:
+    """
+    Classify questions without an additional LLM call.
+
+    This deliberately uses deterministic rules because the project
+    only needs two categories:
+
+        organization-specific maintenance
+        general engineering
+
+    Removing the classifier LLM call gives us:
+      - lower latency
+      - lower API usage
+      - fewer failure points
+      - more predictable behavior
+    """
+
+    normalized = (
+        question
         .strip()
+        .lower()
     )
 
-    if "ORGANIZATION_MAINTENANCE" in classification:
+    for keyword in ORGANIZATION_KEYWORDS:
+        if keyword in normalized:
+            return "organization_maintenance"
+
+    has_component = any(
+        component in normalized
+        for component in MAINTENANCE_COMPONENTS
+    )
+
+    maintenance_terms = (
+        "maintain",
+        "maintenance",
+        "inspect",
+        "inspection",
+        "repair",
+        "replace",
+        "replacement",
+        "troubleshoot",
+        "troubleshooting",
+        "fault",
+        "failure",
+        "damaged",
+    )
+
+    has_maintenance_term = any(
+        term in normalized
+        for term in maintenance_terms
+    )
+
+    if (
+        has_component
+        and has_maintenance_term
+    ):
         return "organization_maintenance"
 
     return "general_engineering"
 
 
-# -----------------------------
-# Load knowledge base
-# -----------------------------
+# ============================================================
+# PROMPTS
+# ============================================================
 
-print("Loading maintenance knowledge base...")
+MAINTENANCE_SYSTEM_PROMPT = """
+You are Maintain AI, an AI-powered maintenance planning and
+operations assistant for industrial organizations.
 
-kb_start = time.time()
+Your role is to help maintenance planners, maintenance engineers,
+and operations teams make practical, evidence-based maintenance
+decisions.
 
-embedding_model, index, chunks = build_knowledge_base()
+The primary demonstration asset is industrial belt conveyor BC-01.
 
-kb_time = time.time() - kb_start
-
-print(
-    f"Knowledge base ready: {len(chunks)} chunks "
-    f"({kb_time:.2f}s)"
-)
-
-
-# =========================================================
-# MAIN MAINTAIN AI FUNCTION
-# =========================================================
-
-def ask_maintain_ai(question, history=None):
-
-    if history is None:
-        history = []
-    # -------------------------
-    # Classification
-    # -------------------------
-
-    classification_start = time.time()
-
-    question_type = classify_question(question, history)
-
-    classification_time = (
-        time.time() - classification_start
-    )
-
-
-    # -------------------------
-    # RAG retrieval
-    # -------------------------
-
-    context = ""
-    sources = []
-
-    retrieval_time = 0.0
-
-
-    if question_type == "organization_maintenance":
-
-        retrieval_start = time.time()
-
-        context, sources = search_documents(
-            question,
-            embedding_model,
-            index,
-            chunks,
-            top_k=3
-        )
-
-        retrieval_time = (
-            time.time() - retrieval_start
-        )
-
-
-    # -------------------------
-    # Build DeepSeek prompt
-    # -------------------------
-
-    if question_type == "organization_maintenance":
-
-        system_prompt = """
-You are Maintain AI, an AI-powered maintenance
-planning and operations assistant for industrial
-organizations.
-
-Your role is to help maintenance planners,
-maintenance engineers, and operations teams make
-practical, evidence-based maintenance decisions.
-
-The primary demonstration asset is industrial belt
-conveyor BC-01.
-
-Relevant components include:
+Relevant components may include:
 
 - Conveyor belt
 - Pulleys
@@ -277,10 +278,10 @@ Relevant components include:
 - Safety equipment
 
 
-IMPORTANT:
+SOURCE OF TRUTH
 
-The retrieved maintenance documents are the primary
-source of truth.
+The retrieved maintenance documents are the primary source of truth
+for organization-specific information.
 
 Never invent:
 
@@ -296,167 +297,103 @@ Never invent:
 - Operational impact
 
 
-If information is unavailable, state exactly:
+If the requested organization-specific information is not present,
+say:
 
 "Not specified in the available maintenance documents."
 
 
-DOCUMENTED INFORMATION VS ENGINEERING JUDGMENT:
+DOCUMENTED INFORMATION VS ENGINEERING JUDGMENT
 
-Clearly distinguish information supported by the
-maintenance documents from general engineering
-judgment.
+Clearly distinguish information supported by the maintenance
+documents from general engineering judgment.
 
-Never present general engineering knowledge as if it
-came from the organization's maintenance documents.
-
-
-PRIORITY RULES:
-
-Never assume a maintenance priority.
-
-Priority must be supported by documented:
-
-- Severity
-- Safety risk
-- Operational impact
-
-Do not infer:
-
-- Production impact
-- Failure severity
-- Operational impact
-- Extent of damage
-
-unless explicitly provided by the user or supported
-by the retrieved documents.
+Never present general engineering knowledge as though it came from
+the organization's documents.
 
 
-MINIMUM-ANSWER PRINCIPLE:
+PRIORITY
 
-Return only the information required to answer the
-user's question.
+Never assume HIGH, MEDIUM, or LOW priority.
 
-If the user asks for a single identifier, number,
-value, or fact, return only that value in the
-"answer" field.
+Priority must be supported by the user's request or documented
+evidence such as severity, safety risk, or operational impact.
 
-Do not add unnecessary explanations.
+If priority cannot be established:
 
-
-WORK-ORDER RULES:
-
-When creating a maintenance work order, generate a
-structured work order using ONLY information supported
-by the user's request and the retrieved maintenance
-documents.
-
-Include:
-
-- Equipment
-- Equipment Item Number
-- Component
-- Component Item Number
-- Priority
-- Task
-- Reason
-- Required Parts
-- Consumables
-- Estimated Material Cost
-- Recommended Actions
-- Safety
-- Sources
+"priority": null
 
 
-EQUIPMENT AND COMPONENT:
+REASON
 
-Use the exact equipment and component information
-supported by the retrieved documents.
+The reason must describe only the condition stated by the user or
+explicitly documented.
 
-Do not confuse an equipment name with its item number.
+Do not invent production impact, downtime, failure consequences,
+severity, or operational impact.
+
+
+EQUIPMENT AND COMPONENT
+
+Use exact equipment and component information supported by the
+retrieved documents.
 
 If BC-01 is the equipment identifier, use:
 
 "name": "Belt Conveyor"
 "item_number": "BC-01"
 
-Do not replace the equipment name with the identifier.
+Do not replace an equipment name with an identifier.
 
 
-REQUIRED PARTS:
+ITEM NUMBERS
 
-A part may ONLY be placed under "required_parts" if
-the retrieved documents explicitly establish that the
-part is required for the specific maintenance task.
+Never invent item numbers.
 
-Do NOT assume that associated components are required.
+If an item number is unavailable, use:
 
-For example, when replacing an idler, do NOT automatically
-include:
+"Item number not specified in the available maintenance documents."
 
-- Bearings
-- Bolts
-- Fasteners
-- Grease
-- Brackets
-- Washers
 
-unless the documents explicitly state that they are
-required for that specific task.
+REQUIRED PARTS
 
-If no required part is explicitly established:
+A part may only be placed under "required_parts" if the retrieved
+documents explicitly establish that the part is required for the
+specific maintenance task.
+
+Do not assume that associated components are required.
+
+Inventory presence alone does not mean that an item is required.
+
+When no required part is explicitly established:
 
 "required_parts": []
 
 
-CONDITIONAL PARTS:
+CONDITIONAL PARTS
 
-If a part may be required depending on inspection,
-condition, or findings, place it under
-"recommended_actions" instead.
+If a part may be required depending on inspection, condition, or
+findings, place it under "recommended_actions" instead.
 
-Do NOT place conditional parts under "required_parts".
+Do not place conditional parts under "required_parts".
 
-Do NOT include conditional parts in the cost.
+Do not include conditional parts in the cost.
 
 
-CONSUMABLES:
+CONSUMABLES
 
-This rule is STRICT.
+Only include a consumable when the retrieved documents explicitly
+state that it is required for the exact maintenance task.
 
-Only include a consumable when the retrieved documents
-explicitly state that it is required for the EXACT
-maintenance task.
-
-Do NOT include a consumable simply because:
-
-- It exists in inventory
-- It is normally used during maintenance
-- It is associated with the component
-- It appears in the maintenance manual
-- It would be useful
-
-For example, do not automatically include:
-
-- Bearing grease
-- Cleaning cloth
-- Lubricant
-- Cleaning materials
-
-for an idler replacement.
-
-If no consumable is explicitly confirmed as required:
+If no consumable is explicitly confirmed:
 
 "consumables": []
 
 
-COST:
+COST
 
-Only calculate "estimated_material_cost" from parts
-and consumables that are explicitly confirmed as
-required for the task.
-
-Do not include conditional or optional items.
+Only calculate estimated material cost from confirmed required
+parts and consumables with documented costs.
 
 Do not invent costs.
 
@@ -465,202 +402,21 @@ If no confirmed required items have documented costs:
 "estimated_material_cost": null
 
 
-PRIORITY:
+SAFETY
 
-Never assign HIGH, MEDIUM, or LOW unless the user or
-retrieved documents provide sufficient evidence.
+Only include safety requirements supported by the documents or
+clearly required by the stated maintenance procedure.
 
-If priority cannot be established:
-
-"priority": null
-
-
-REASON:
-
-The reason must describe ONLY the condition stated by
-the user or explicitly documented.
-
-Do not invent:
-
-- Production impact
-- Downtime
-- Failure consequences
-- Severity
-- Safety risk
-- Belt damage
-- Operational impact
-
-For example, if the user says:
-
-"Create a work order for a damaged idler."
-
-The reason should be based only on:
-
-"Damaged idler reported by the user."
-
-Do not add predicted consequences.
-
-
-SAFETY:
-
-Only include safety requirements supported by the
-retrieved documents or clearly required by the stated
-maintenance procedure.
-
-Do not treat safety equipment as a required spare part.
-
-For example, a lockout/tagout requirement belongs
-under "safety", not "required_parts".
-
-
-ITEM NUMBERS:
-
-Never invent item numbers.
-
-Use an item number only when it appears in the
-retrieved documents.
-
-If an item number is unavailable, state exactly:
-
-"Item number not specified in the available maintenance documents."
-
-
-SOURCES:
-
-Only use source filenames provided by the Python
-application.
-
-Do not invent source filenames.
-
-Every equipment, component, spare part, or consumable
-must have an item number when available.
-
-Never invent an item number.
-
-If unavailable, state exactly:
-
-"Item number not specified in the available maintenance documents."
-
-
-
-REQUIRED PARTS:
-
-This rule is STRICT.
-
-An item MUST NOT be placed under "required_parts"
-merely because:
-
-- It belongs to the same equipment
-- It is associated with the component
-- It appears in the inventory document
-- It is commonly replaced together
-- It is physically part of the component
-- It could potentially be needed
-
-A part can ONLY be included in "required_parts" when
-the retrieved documents explicitly state that the part
-is required for the EXACT maintenance task being created.
-
-Inventory presence alone does NOT mean the item is
-required.
-
-For example:
-
-If the task is:
-
-"Replace damaged idler"
-
-Do NOT automatically include:
-
-- Carrying idler
-- Idler bearing
-- Structural bolts
-- Grease
-- Cleaning cloth
-
-unless the retrieved documents explicitly say that
-those specific items are required for an idler
-replacement.
-
-If the documents only provide item numbers or inventory
-availability, that is NOT sufficient evidence that the
-item is required.
-
-When no part is explicitly confirmed as required:
-
-"required_parts": []
-
-
-IMPORTANT:
-
-Do not use engineering assumptions to fill
+Safety equipment and procedures belong under "safety", not
 "required_parts".
 
-When uncertain, leave the array empty.
 
+WORK ORDERS
 
+When creating a maintenance work order, use only information
+supported by the user's request and retrieved documents.
 
-CONDITIONAL ITEMS:
-
-If a part depends on inspection or another condition,
-do not list it under required_parts.
-
-Place it under recommended_actions as a conditional
-recommendation.
-
-Conditional items must NOT be included in the
-estimated material cost.
-
-
-COST:
-
-Estimated material cost must include ONLY confirmed
-required items.
-
-Do not estimate costs for conditional items.
-
-Do not invent costs.
-
-Use documented costs only.
-
-
-SOURCES:
-
-The Python application will provide the retrieved
-source filenames.
-
-Do not invent source filenames.
-
-
-RESPONSE FORMAT:
-
-Return ONLY valid JSON.
-
-Do not return markdown.
-
-Do not return code fences.
-
-Do not add explanations outside the JSON.
-
-
-For a normal maintenance question, use:
-
-{
-  "type": "simple_answer",
-  "answer": "string",
-  "sources": []
-}
-
-
-Other valid types are:
-
-equipment_information
-maintenance_information
-troubleshooting
-parts_cost
-
-
-For a maintenance work order, use:
+Return:
 
 {
   "type": "maintenance_work_order",
@@ -684,44 +440,37 @@ For a maintenance work order, use:
 }
 
 
-Return JSON only.
-Keep responses concise and practical.
-"""
+NORMAL MAINTENANCE QUESTIONS
+
+For normal questions return:
+
+{
+  "type": "simple_answer",
+  "answer": "",
+  "sources": []
+}
 
 
-        user_prompt = f"""
-MAINTENANCE KNOWLEDGE:
-
-{context}
-
-
-USER QUESTION:
-
-{question}
-
-
-Use the retrieved maintenance knowledge as the
-primary source of truth.
-
-If the required information is not present,
-state:
-
-"Not specified in the available maintenance documents."
-
-Do not invent information.
+RESPONSE FORMAT
 
 Return ONLY valid JSON.
+
+Do not return Markdown.
+
+Do not return code fences.
+
+Do not add explanations outside the JSON.
+
+Keep answers concise and practical.
 """
 
 
-    else:
+GENERAL_ENGINEERING_SYSTEM_PROMPT = """
+You are Maintain AI, a practical general engineering knowledge
+assistant.
 
-        system_prompt = """
-You are Maintain AI, a practical general engineering
-knowledge assistant.
-
-Answer general engineering questions clearly,
-accurately, and practically.
+Answer general engineering questions clearly, accurately, and
+practically.
 
 Topics may include:
 
@@ -737,16 +486,15 @@ Topics may include:
 - Engineering terminology
 - Equipment operation
 - Engineering calculations
-- Engineering concepts
 - Maintenance concepts
 
 
 This is a GENERAL ENGINEERING question.
 
-Do not use the organization's maintenance documents.
+Do not use organization-specific maintenance documents.
 
-Do not pretend that the answer came from the
-organization's maintenance documents.
+Do not pretend that an answer came from organization-specific
+documents.
 
 Do not unnecessarily relate the answer to BC-01.
 
@@ -754,169 +502,289 @@ If the question is simple, give a simple answer.
 
 Use practical examples when they improve understanding.
 
-Keep responses concise and useful.
-
-
-RESPONSE FORMAT:
-
-Return ONLY valid JSON.
-
-Do not return markdown.
-
-Do not return code fences.
-
-Do not add explanations outside the JSON.
-
-Use exactly:
+Return ONLY valid JSON:
 
 {
   "type": "general_engineering",
-  "answer": "string",
+  "answer": "",
   "sources": []
 }
 
-
-Because this is general engineering knowledge,
-sources MUST always be an empty array.
+For general engineering questions, sources must always be an empty
+array.
 
 Return JSON only.
 """
 
 
-        user_prompt = question
+# ============================================================
+# LLM CALL
+# ============================================================
 
+def run_chat_completion(
+    system_prompt: str,
+    user_prompt: str,
+    history: list[dict[str, Any]],
+) -> str:
+    """
+    Execute a single remote DeepSeek request.
 
-    # -------------------------
-    # DeepSeek
-    # -------------------------
+    DeepSeek remains hosted remotely through Hugging Face.
+    Render never loads the DeepSeek model locally.
+    """
 
-    llm_start = time.time()
+    require_huggingface_token()
 
     response = client.chat.completions.create(
         model=MODEL,
-
         messages=[
             {
                 "role": "system",
-                "content": system_prompt
+                "content": system_prompt,
             },
             {
-            "role": "user",
-            "content": f"""
-            Previous conversation:
-
-            {json.dumps(history, ensure_ascii=False)}
-
-            Current request:
-
-            {user_prompt}
-    """
-        }
+                "role": "user",
+                "content": (
+                    "Previous conversation:\n\n"
+                    f"{json.dumps(history, ensure_ascii=False)}"
+                    "\n\n"
+                    "Current request:\n\n"
+                    f"{user_prompt}"
+                ),
+            },
         ],
-
         max_tokens=500,
-        temperature=0.1
+        temperature=0.1,
     )
 
-    llm_time = time.time() - llm_start
-
-
-    # -------------------------
-    # Parse JSON
-    # -------------------------
-
-    raw_response = (
+    return (
         response.choices[0]
         .message
         .content
+        or ""
     )
 
 
-    try:
+# ============================================================
+# MAIN MAINTAIN AI PIPELINE
+# ============================================================
 
+def ask_maintain_ai(
+    question: str,
+    history: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """
+    Run the complete Maintain AI pipeline.
+    """
+
+    if history is None:
+        history = []
+
+    request_start = time.time()
+
+    # --------------------------------------------------------
+    # Classification
+    # --------------------------------------------------------
+
+    classification_start = time.time()
+
+    question_type = classify_question(
+        question
+    )
+
+    classification_time = (
+        time.time()
+        - classification_start
+    )
+
+    # --------------------------------------------------------
+    # Retrieval
+    # --------------------------------------------------------
+
+    context = ""
+    sources: list[str] = []
+    retrieval_time = 0.0
+
+    if (
+        question_type
+        == "organization_maintenance"
+    ):
+        retrieval_start = time.time()
+
+        retrieval_index = (
+            get_retrieval_index()
+        )
+
+        context, sources = (
+            search_documents(
+                question,
+                retrieval_index,
+                top_k=3,
+            )
+        )
+
+        retrieval_time = (
+            time.time()
+            - retrieval_start
+        )
+
+    # --------------------------------------------------------
+    # Prompt construction
+    # --------------------------------------------------------
+
+    if (
+        question_type
+        == "organization_maintenance"
+    ):
+        user_prompt = f"""
+MAINTENANCE KNOWLEDGE
+
+{context if context else "No relevant maintenance document content was found."}
+
+
+USER QUESTION
+
+{question}
+
+
+Use the retrieved maintenance knowledge as the primary source of
+truth.
+
+If the required organization-specific information is not present,
+state:
+
+"Not specified in the available maintenance documents."
+
+Do not invent information.
+
+Return ONLY valid JSON.
+"""
+
+        system_prompt = (
+            MAINTENANCE_SYSTEM_PROMPT
+        )
+
+    else:
+        user_prompt = question
+
+        system_prompt = (
+            GENERAL_ENGINEERING_SYSTEM_PROMPT
+        )
+
+    # --------------------------------------------------------
+    # LLM
+    # --------------------------------------------------------
+
+    llm_start = time.time()
+
+    raw_response = run_chat_completion(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        history=history,
+    )
+
+    llm_time = (
+        time.time()
+        - llm_start
+    )
+
+    # --------------------------------------------------------
+    # Parse response
+    # --------------------------------------------------------
+
+    try:
         result = parse_json_response(
             raw_response
         )
 
     except (
         json.JSONDecodeError,
-        TypeError
+        TypeError,
+        ValueError,
     ):
-
+        # Preserve the model's answer rather than crashing the
+        # entire API when the model returns non-JSON content.
         result = {
             "type": (
                 "general_engineering"
-                if question_type ==
-                "general_engineering"
+                if question_type
+                == "general_engineering"
                 else "simple_answer"
             ),
             "answer": raw_response,
-            "sources": []
+            "sources": [],
         }
 
+    # --------------------------------------------------------
+    # Source enforcement
+    # --------------------------------------------------------
 
-    # -------------------------
-    # Source handling
-    # -------------------------
-
-    if question_type == "organization_maintenance":
-
+    if (
+        question_type
+        == "organization_maintenance"
+    ):
         result["sources"] = sources
 
     else:
-
         result["sources"] = []
 
+    # --------------------------------------------------------
+    # Type enforcement
+    # --------------------------------------------------------
 
-    # -------------------------
-    # Ensure type exists
-    # -------------------------
+    if not result.get("type"):
+        result["type"] = (
+            "general_engineering"
+            if question_type
+            == "general_engineering"
+            else "simple_answer"
+        )
 
-    if "type" not in result:
-
-        if question_type == "general_engineering":
-
-            result["type"] = "general_engineering"
-
-        else:
-
-            result["type"] = "simple_answer"
-
-
-    # -------------------------
+    # --------------------------------------------------------
     # Performance metadata
-    # -------------------------
+    # --------------------------------------------------------
+
+    request_time = (
+        time.time()
+        - request_start
+    )
 
     result["_performance"] = {
+        "question_type": question_type,
         "classification_time": round(
             classification_time,
-            3
+            3,
         ),
         "retrieval_time": round(
             retrieval_time,
-            3
+            3,
         ),
         "llm_time": round(
             llm_time,
-            3
+            3,
         ),
         "request_time": round(
-            classification_time
-            + retrieval_time
-            + llm_time,
-            3
-        )
+            request_time,
+            3,
+        ),
     }
-
 
     return result
 
 
-# =========================================================
-# CLI MODE
-# =========================================================
+# ============================================================
+# CLI
+# ============================================================
 
 if __name__ == "__main__":
+
+    print(
+        "Maintain AI CLI"
+    )
+
+    print(
+        "Type 'exit' to quit."
+    )
 
     while True:
 
@@ -924,63 +792,35 @@ if __name__ == "__main__":
             "\nAsk Maintain AI: "
         ).strip()
 
-
         if not question:
             continue
 
-
-        if question.lower() in [
+        if question.lower() in {
             "exit",
             "quit",
-            "bye"
-        ]:
-
+            "bye",
+        }:
             print(
                 "\nMaintain AI session ended."
             )
-
             break
 
-
-        result = ask_maintain_ai(
-            question
-        )
-
-
-        print("\nMaintain AI:")
-
-        print(
-            json.dumps(
-                result,
-                indent=2,
-                ensure_ascii=False
+        try:
+            result = ask_maintain_ai(
+                question
             )
-        )
 
+            print("\nMaintain AI:")
 
-        print("\nPerformance:")
+            print(
+                json.dumps(
+                    result,
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            )
 
-        performance = result.get(
-            "_performance",
-            {}
-        )
-
-        print(
-            f"- Question classification: "
-            f"{performance.get('classification_time', 0):.3f}s"
-        )
-
-        print(
-            f"- RAG retrieval: "
-            f"{performance.get('retrieval_time', 0):.3f}s"
-        )
-
-        print(
-            f"- LLM response: "
-            f"{performance.get('llm_time', 0):.3f}s"
-        )
-
-        print(
-            f"- Request time: "
-            f"{performance.get('request_time', 0):.3f}s"
-        )
+        except Exception as error:
+            print(
+                f"\nError: {error}"
+            )
