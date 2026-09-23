@@ -1,3 +1,33 @@
-maintenv/
-.env
+# Python
 __pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+maintenv/
+venv/
+.venv/
+env/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Runtime application data
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Local caches
+.cache/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
