@@ -1,42 +1,80 @@
-from typing import Any, Optional
+from typing import Any
 
-from pydantic import BaseModel, Field,  EmailStr
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+)
 
 
+# ============================================================
+# CHAT
+# ============================================================
 
 class ChatRequest(BaseModel):
-    question: str = Field(..., min_length=1)
-    conversation_id: str
+    question: str = Field(
+        ...,
+        min_length=1,
+        max_length=5000,
+    )
+
+    conversation_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+    )
 
 
 class ChatResponse(BaseModel):
     type: str
-    answer: Optional[str] = None
-    sources: list[str] = []
-    data: Optional[dict[str, Any]] = None
 
-    equipment: Optional[dict[str, Any]] = None
-    component: Optional[dict[str, Any]] = None
-    priority: Optional[str] = None
-    task: Optional[str] = None
-    reason: Optional[str] = None
-    required_parts: list[dict[str, Any]] = []
-    consumables: list[dict[str, Any]] = []
-    estimated_material_cost: Optional[float] = None
-    recommended_actions: list[Any] = []
-    safety: list[Any] = []
+    answer: str | None = None
+
+    sources: list[str] = Field(
+        default_factory=list
+    )
+
+    data: dict[str, Any] | None = None
+
+    equipment: dict[str, Any] | None = None
+
+    component: dict[str, Any] | None = None
+
+    priority: str | None = None
+
+    task: str | None = None
+
+    reason: str | None = None
+
+    required_parts: list[dict[str, Any]] = Field(
+        default_factory=list
+    )
+
+    consumables: list[dict[str, Any]] = Field(
+        default_factory=list
+    )
+
+    estimated_material_cost: float | None = None
+
+    recommended_actions: list[Any] = Field(
+        default_factory=list
+    )
+
+    safety: list[Any] = Field(
+        default_factory=list
+    )
 
 
-# ==============================
+# ============================================================
 # AUTHENTICATION
-# ==============================
+# ============================================================
 
 class RegisterRequest(BaseModel):
 
     full_name: str = Field(
         ...,
         min_length=2,
-        max_length=100
+        max_length=100,
     )
 
     email: EmailStr
@@ -44,7 +82,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(
         ...,
         min_length=8,
-        max_length=128
+        max_length=128,
     )
 
 
@@ -52,7 +90,11 @@ class LoginRequest(BaseModel):
 
     email: EmailStr
 
-    password: str
+    password: str = Field(
+        ...,
+        min_length=1,
+        max_length=128,
+    )
 
 
 class AuthResponse(BaseModel):
