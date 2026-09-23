@@ -3,12 +3,23 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
-from api.schemas import ChatRequest, ChatResponse
+from api.schemas import (
+    ChatRequest,
+    ChatResponse,
+)
 
-from app import ask_maintain_ai
+from app import (
+    ask_maintain_ai,
+    is_ai_configured,
+)
 
-from api.auth.database import initialize_users_database
-from api.auth.routes import router as auth_router
+from api.auth.database import (
+    initialize_users_database,
+)
+
+from api.auth.routes import (
+    router as auth_router,
+)
 
 from memory.conversation import (
     initialize_memory,
@@ -17,54 +28,55 @@ from memory.conversation import (
 )
 
 
-# ==========================================
+# ============================================================
 # APPLICATION
-# ==========================================
+# ============================================================
 
 app = FastAPI(
     title="Maintain AI API",
-    description="AI-powered maintenance planning and engineering assistant",
-    version="1.0.0"
+    description=(
+        "AI-powered maintenance planning and "
+        "general engineering assistant."
+    ),
+    version="1.1.0",
 )
 
 
-# ==========================================
+# ============================================================
 # PATHS
-# ==========================================
+# ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-FRONTEND_DIR = BASE_DIR / "frontend"
+FRONTEND_DIR = (
+    BASE_DIR / "frontend"
+)
 
 
-# ==========================================
+# ============================================================
 # DATABASE INITIALIZATION
-# ==========================================
+# ============================================================
 
-# Conversation memory
 initialize_memory()
 
-# User authentication database
 initialize_users_database()
 
 
-# ==========================================
-# AUTHENTICATION ROUTES
-# ==========================================
+# ============================================================
+# AUTHENTICATION
+# ============================================================
 
-app.include_router(auth_router)
+app.include_router(
+    auth_router
+)
 
 
-# ==========================================
+# ============================================================
 # FRONTEND
-# ==========================================
+# ============================================================
 
 @app.get("/")
 def root():
-    """
-    Serve the Maintain AI homepage.
-    """
-
     return FileResponse(
         FRONTEND_DIR / "index.html"
     )
@@ -72,10 +84,6 @@ def root():
 
 @app.get("/login.html")
 def login_page():
-    """
-    Serve the login page.
-    """
-
     return FileResponse(
         FRONTEND_DIR / "login.html"
     )
@@ -83,10 +91,6 @@ def login_page():
 
 @app.get("/register.html")
 def register_page():
-    """
-    Serve the registration page.
-    """
-
     return FileResponse(
         FRONTEND_DIR / "register.html"
     )
@@ -94,25 +98,13 @@ def register_page():
 
 @app.get("/dashboard.html")
 def dashboard_page():
-    """
-    Serve the dashboard page.
-    """
-
     return FileResponse(
         FRONTEND_DIR / "dashboard.html"
     )
 
 
-# ==========================================
-# CSS
-# ==========================================
-
 @app.get("/style.css")
 def stylesheet():
-    """
-    Serve global stylesheet.
-    """
-
     return FileResponse(
         FRONTEND_DIR / "style.css"
     )
@@ -120,123 +112,138 @@ def stylesheet():
 
 @app.get("/dashboard.css")
 def dashboard_stylesheet():
-    """
-    Serve dashboard stylesheet.
-    """
-
     return FileResponse(
         FRONTEND_DIR / "dashboard.css"
     )
 
 
-# ==========================================
-# JAVASCRIPT
-# ==========================================
-
 @app.get("/app.js")
 def javascript():
-    """
-    Serve frontend JavaScript.
-    """
-
     return FileResponse(
         FRONTEND_DIR / "app.js"
     )
 
 
-# ==========================================
+# ============================================================
 # HEALTH CHECK
-# ==========================================
+# ============================================================
 
 @app.get("/health")
 def health():
     """
-    API health check.
+    Lightweight health endpoint.
+
+    This endpoint intentionally does not initialize the RAG system
+    or contact Hugging Face. Render can therefore use it as a fast
+    service health check.
     """
 
     return {
-        "status": "healthy"
+        "status": "healthy",
+        "service": "maintain-ai",
+        "ai_configured": is_ai_configured(),
     }
 
 
-# ==========================================
-# AI CHAT
-# ==========================================
+# ============================================================
+# CHAT
+# ============================================================
 
 @app.post(
     "/chat",
-    response_model=ChatResponse
+    response_model=ChatResponse,
 )
-def chat(request: ChatRequest):
-
+def chat(
+    request: ChatRequest,
+):
     question = request.question.strip()
 
     if not question:
-
         raise HTTPException(
             status_code=400,
-            detail="Question cannot be empty."
+            detail="Question cannot be empty.",
         )
 
-
-    # --------------------------------------
-    # Retrieve conversation history
-    # --------------------------------------
+    # --------------------------------------------------------
+    # Conversation history
+    # --------------------------------------------------------
 
     history = get_conversation_history(
         request.conversation_id,
-        limit=10
+        limit=10,
     )
 
+    try:
 
-    print("\nConversation history:")
-    print(history)
+        result = ask_maintain_ai(
+            question,
+            history,
+        )
 
+    except RuntimeError as error:
 
-    # --------------------------------------
-    # Run Maintain AI pipeline
-    # --------------------------------------
+        # Configuration errors such as a missing HF_TOKEN.
+        raise HTTPException(
+            status_code=503,
+            detail=str(error),
+        ) from error
 
-    result = ask_maintain_ai(
-        question,
-        history
-    )
+    except TimeoutError as error:
 
+        raise HTTPException(
+            status_code=504,
+            detail=(
+                "The AI service took too long to respond. "
+                "Please try again."
+            ),
+        ) from error
 
-    # --------------------------------------
-    # Remove internal performance metadata
-    # --------------------------------------
+    except Exception as error:
+
+        # Keep the actual error in Render logs but avoid exposing
+        # internal implementation details to the client.
+        print(
+            f"Maintain AI request failed: {error}"
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "The AI service could not complete the request. "
+                "Please try again."
+            ),
+        ) from error
+
+    # --------------------------------------------------------
+    # Remove internal diagnostics
+    # --------------------------------------------------------
 
     result.pop(
         "_performance",
-        None
+        None,
     )
 
-
-    # --------------------------------------
+    # --------------------------------------------------------
     # Save user message
-    # --------------------------------------
+    # --------------------------------------------------------
 
     save_message(
         request.conversation_id,
         "user",
-        question
+        question,
     )
 
-
-    # --------------------------------------
-    # Save AI response
-    # --------------------------------------
+    # --------------------------------------------------------
+    # Save assistant response
+    # --------------------------------------------------------
 
     save_message(
         request.conversation_id,
         "assistant",
-        result.get("answer", "")
+        result.get(
+            "answer",
+            "",
+        ),
     )
-
-
-    # --------------------------------------
-    # Return structured response
-    # --------------------------------------
 
     return result
