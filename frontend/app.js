@@ -1,4 +1,4 @@
-const API_URL = "https://maintain-ai.onrender.com";
+const API_URL = window.location.origin;
 
 
 // ==========================================
