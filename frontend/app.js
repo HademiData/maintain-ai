@@ -11,7 +11,6 @@ const token =
 const storedUser =
     localStorage.getItem("maintain_ai_user");
 
-
 // Protect dashboard
 
 if (

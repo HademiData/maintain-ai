@@ -123,6 +123,11 @@ def javascript():
         FRONTEND_DIR / "app.js"
     )
 
+@app.get("/hero.png")
+def hero_image():
+    return FileResponse(
+        FRONTEND_DIR / "hero.png"
+    )
 
 # ============================================================
 # HEALTH CHECK
